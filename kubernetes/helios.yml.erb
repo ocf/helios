@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: helios-service
+spec:
+  selector:
+    app: helios
+  ports:
+    - port: 80
+      targetPort: 8080
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helios-deployment
+  labels:
+    app: helios
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: helios
+  template:
+    metadata:
+      labels:
+        app: helios
+    spec:
+      containers:
+        - name: helios
+          image: "docker.ocf.berkeley.edu/helios:<%= version %>"
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: 500m
+          envFrom:
+            - secretRef:
+                name: helios-secret
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sourcegraph-secret
+type: Opaque
+stringData:
+  SECRET_KEY: blahblahblah
+  DEFAULT_FROM_EMAIL: ocfbot@ocf.berkeley.edu
+  DEFAULT_FROM_NAME: OCF Voting Bot
+  SITE_TITLE: OCF Voting
+  HELP_EMAIL_ADDRESS: help@ocf.berkeley.edu
+  EMAIL_HOST: smtp.ocf.berkeley.edu
+               
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: virtual-host-ingress
+spec:
+  rules:
+    - host: vote.dev-kubernetes.ocf.berkeley.edu
+      http:
+        paths:
+          - backend:
+              serviceName: helios-service
+              servicePort: 80
